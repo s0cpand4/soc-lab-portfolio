@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOC Home Lab — Wazuh SOAR Pipeline | Security Portfolio</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2128; --border:#30363d;
+    --txt:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950;
+    --warn:#d29922; --danger:#f85149; --purple:#bc8cff;
+    --sidebar-w: 260px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--txt); line-height:1.65; font-size:16px;
+  }
+
+  /* LAYOUT */
+  .layout { display:flex; min-height:100vh; }
+  .sidebar {
+    width:var(--sidebar-w); background:var(--panel); border-right:1px solid var(--border);
+    position:fixed; top:0; bottom:0; left:0; overflow-y:auto; padding:24px 0; z-index:50;
+  }
+  .sidebar .brand {
+    padding:0 24px 20px; border-bottom:1px solid var(--border); margin-bottom:16px;
+  }
+  .sidebar .brand h1 { font-size:15px; font-weight:700; letter-spacing:-.01em; line-height:1.3; }
+  .sidebar .brand p { font-size:11px; color:var(--muted); font-family:ui-monospace,monospace;
+    letter-spacing:.08em; text-transform:uppercase; margin-top:6px; }
+  .sidebar nav a {
+    display:block; padding:7px 24px; color:var(--muted); text-decoration:none;
+    font-size:13.5px; border-left:2px solid transparent; transition:.15s;
+  }
+  .sidebar nav a:hover { color:var(--txt); background:var(--panel2); }
+  .sidebar nav a.active { color:var(--accent); border-left-color:var(--accent); background:rgba(88,166,255,.06); }
+  .sidebar nav .group { padding:16px 24px 6px; font-size:10.5px; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.1em; font-weight:700; }
+
+  .main { margin-left:var(--sidebar-w); flex:1; min-width:0; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 40px; }
+
+  /* HERO */
+  header.hero {
+    background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#1f2937 100%);
+    border-bottom:1px solid var(--border); padding:72px 0 56px; position:relative; overflow:hidden;
+  }
+  header.hero::before {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 20% 30%, rgba(88,166,255,.10) 0%, transparent 50%),
+               radial-gradient(circle at 80% 70%, rgba(188,140,255,.08) 0%, transparent 50%);
+  }
+  header.hero .wrap { position:relative; z-index:1; }
+  .tagline { color:var(--accent); font-family:ui-monospace,monospace;
+    font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px; }
+  h1.hero-title { font-size:40px; line-height:1.15; font-weight:700; letter-spacing:-.02em; margin-bottom:16px; }
+  h1.hero-title span { background:linear-gradient(90deg,var(--accent),var(--purple));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .subtitle { color:var(--muted); font-size:18px; max-width:720px; margin-bottom:28px; }
+  .badges { display:flex; flex-wrap:wrap; gap:8px; }
+  .badge { background:var(--panel); border:1px solid var(--border); color:var(--txt);
+    padding:5px 12px; border-radius:20px; font-size:12px; font-family:ui-monospace,monospace; }
+  .badge.a { border-color:rgba(88,166,255,.4); color:var(--accent); }
+  .badge.g { border-color:rgba(63,185,80,.4); color:var(--accent2); }
+  .badge.p { border-color:rgba(188,140,255,.4); color:var(--purple); }
+
+  /* SECTIONS */
+  section { padding:56px 0; border-bottom:1px solid var(--border); scroll-margin-top:24px; }
+  h2 { font-size:26px; font-weight:700; letter-spacing:-.01em; margin-bottom:8px;
+    display:flex; align-items:center; gap:12px; }
+  h2::before { content:''; width:4px; height:24px; background:var(--accent); border-radius:2px; }
+  h3 { font-size:17px; font-weight:600; margin:26px 0 12px; color:var(--txt); }
+  h4 { font-size:15px; font-weight:600; margin:18px 0 8px; }
+  .lead { color:var(--muted); margin-bottom:32px; font-size:16px; max-width:820px; }
+
+  /* CARDS */
+  .grid { display:grid; gap:16px; }
+  .g2 { grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+  .g3 { grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px; transition:.2s; }
+  .card:hover { border-color:rgba(88,166,255,.4); transform:translateY(-2px); }
+  .card h4 { font-size:14.5px; margin-bottom:8px; display:flex; align-items:center; gap:8px; margin-top:0; }
+  .card p { color:var(--muted); font-size:14px; }
+  .ico { font-size:17px; }
+
+  /* PIPELINE */
+  .pipeline { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; margin:28px 0; }
+  .stage { flex:1 1 150px; min-width:140px; background:var(--panel2); border:1px solid var(--border);
+    border-radius:10px; padding:16px 12px; text-align:center; }
+  .stage .num { font-family:ui-monospace,monospace; font-size:10.5px; color:var(--muted);
+    letter-spacing:.1em; margin-bottom:6px; }
+  .stage .name { font-weight:600; font-size:13.5px; margin-bottom:4px; }
+  .stage .desc { font-size:11.5px; color:var(--muted); line-height:1.45; }
+  .arrow { flex:0 0 28px; display:flex; align-items:center; justify-content:center;
+    color:var(--accent); font-size:18px; }
+  .stage.s1 { border-top:3px solid var(--danger); }
+  .stage.s2 { border-top:3px solid var(--warn); }
+  .stage.s3 { border-top:3px solid var(--accent); }
+  .stage.s4 { border-top:3px solid var(--purple); }
+  .stage.s5 { border-top:3px solid var(--accent2); }
+
+  /* TABLE */
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+  th,td { text-align:left; padding:10px 13px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+  td code, p code, li code { background:var(--panel2); padding:2px 6px; border-radius:4px;
+    font-family:ui-monospace,monospace; font-size:12.5px; color:var(--accent); }
+
+  /* CODE */
+  pre { background:#010409; border:1px solid var(--border); border-radius:8px;
+    padding:16px; overflow-x:auto; margin:14px 0; }
+  pre code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12.5px;
+    color:#c9d1d9; line-height:1.65; }
+  .cmt { color:#8b949e; } .kw { color:#ff7b72; } .str { color:#a5d6ff; } .fn { color:#d2a8ff; }
+
+  /* TIMELINE */
+  .timeline { position:relative; padding-left:28px; margin-top:24px; }
+  .timeline::before { content:''; position:absolute; left:7px; top:6px; bottom:6px;
+    width:2px; background:var(--border); }
+  .tl-item { position:relative; margin-bottom:24px; }
+  .tl-item::before { content:''; position:absolute; left:-25px; top:6px; width:12px; height:12px;
+    border-radius:50%; background:var(--accent); border:2px solid var(--bg); }
+  .tl-item.win::before { background:var(--accent2); }
+  .tl-item h4 { font-size:14.5px; margin-bottom:6px; margin-top:0; }
+  .tl-item p { color:var(--muted); font-size:13.5px; margin-bottom:6px; }
+  .tl-tag { display:inline-block; font-size:10.5px; font-family:ui-monospace,monospace;
+    padding:2px 8px; border-radius:4px; margin-bottom:6px; letter-spacing:.04em; }
+  .tl-tag.err { background:rgba(248,81,73,.15); color:var(--danger); }
+  .tl-tag.fix { background:rgba(63,185,80,.15); color:var(--accent2); }
+
+  /* SKILLS */
+  .skill-group { margin-bottom:22px; }
+  .skill-group h4 { font-size:12px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.08em; margin-bottom:10px; margin-top:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { background:var(--panel2); border:1px solid var(--border); padding:5px 11px;
+    border-radius:6px; font-size:12.5px; font-family:ui-monospace,monospace; }
+
+  /* STATS */
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin:24px 0; }
+  .stat { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px; text-align:center; }
+  .stat .v { font-size:26px; font-weight:700; color:var(--accent); font-family:ui-monospace,monospace; }
+  .stat .l { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  /* CALLOUT */
+  .callout { background:rgba(88,166,255,.06); border-left:3px solid var(--accent);
+    padding:14px 18px; border-radius:0 8px 8px 0; margin:16px 0; font-size:14px; }
+  .callout.warn { background:rgba(210,153,34,.08); border-left-color:var(--warn); }
+  .callout.danger { background:rgba(248,81,73,.08); border-left-color:var(--danger); }
+  .callout.success { background:rgba(63,185,80,.08); border-left-color:var(--accent2); }
+  .callout strong { color:var(--txt); }
+
+  /* FOOTER */
+  footer { padding:36px 0; text-align:center; color:var(--muted); font-size:13.5px; }
+  footer a { color:var(--accent); text-decoration:none; }
+  footer a:hover { text-decoration:underline; }
+
+  /* MOBILE */
+  .mobile-header { display:none; }
+  @media(max-width:900px) {
+    .sidebar { transform:translateX(-100%); transition:.25s; }
+    .sidebar.open { transform:translateX(0); }
+    .main { margin-left:0; }
+    .mobile-header { display:flex; align-items:center; justify-content:space-between;
+      padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:40; }
+    .mobile-header button { background:none; border:1px solid var(--border); color:var(--txt);
+      padding:6px 12px; border-radius:6px; cursor:pointer; font-size:14px; }
+    .wrap { padding:0 24px; }
+    h1.hero-title { font-size:28px; }
+    .arrow { flex:0 0 100%; height:20px; transform:rotate(90deg); }
+    .stage { flex:1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1>SOC Home Lab</h1>
+      <p>Wazuh → n8n → Gmail</p>
+    </div>
+    <nav>
+      <div class="group">Overview</div>
+      <a href="#overview">Project Overview</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#pipeline">The SOAR Pipeline</a>
+      <a href="#results">Results</a>
+
+      <div class="group">Deployment</div>
+      <a href="#n8n-setup">n8n Setup</a>
+      <a href="#oauth">Google OAuth2</a>
+      <a href="#workflow">Workflow Build</a>
+      <a href="#wazuh-setup">Wazuh Setup</a>
+      <a href="#agent">Agent Enrollment</a>
+      <a href="#integration">Integration Script</a>
+
+      <div class="group">Reference</div>
+      <a href="#configs">Configuration Files</a>
+      <a href="#challenges">Challenges Solved</a>
+      <a href="#skills">Skills</a>
+      <a href="#repo">Repo Structure</a>
+      <a href="#roadmap">Future Work</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <div class="mobile-header">
+      <strong>SOC Home Lab</strong>
+      <button onclick="document.getElementById('sidebar').classList.toggle('open')">☰ Menu</button>
+    </div>
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="wrap">
+        <div class="tagline">Security Operations &amp; Automation Portfolio</div>
+        <h1 class="hero-title">Cyber Security Monitoring &amp; <span>Detection Lab</span></h1>
+        <p class="subtitle">
+          A fully self-hosted, segmented home lab featuring a Wazuh SIEM integrated with an
+          n8n-based SOAR pipeline that automatically triages alerts and delivers Gmail
+          notifications — built entirely from open-source components at zero software cost.
+        </p>
+        <div class="badges">
+          <span class="badge a">Wazuh 4.14</span>
+          <span class="badge a">n8n (Docker)</span>
+          <span class="badge g">pfSense CE 2.6</span>
+          <span class="badge g">Ubuntu Server 24.04</span>
+          <span class="badge g">Windows Server 2019</span>
+          <span class="badge p">Kali Linux</span>
+          <span class="badge p">Gmail API / OAuth2</span>
+          <span class="badge p">VMware Workstation Pro</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Project Overview</h2>
+      <p class="lead">
+        Modern SOC teams don't just detect — they respond. This lab demonstrates an
+        end-to-end detection and automated response pipeline, from network-level attacks
+        launched from Kali Linux through to a formatted email landing in an analyst's
+        inbox within seconds.
+      </p>
+
+      <div class="grid g3">
+        <div class="card">
+          <h4><span class="ico">🎯</span> Objective</h4>
+          <p>Build a realistic SOC environment where high-severity alerts trigger automated
+             email notifications without manual analyst intervention.</p>
+        </div>
+        <div class="card">
+          <h4><span class="ico">🧩</span> Scope</h4>
+          <p>Full lifecycle: network segmentation, SIEM deployment, endpoint agent
+             enrollment, attack simulation, alert correlation, and SOAR automation.</p>
+        </div>
+        <div class="card">
+          <h4><span class="ico">💰</span> Constraint</h4>
+          <p>100% open-source stack, self-hosted on a single physical host. No cloud
+             subscriptions, no licensing fees, no paid tiers.</p>
+        </div>
+      </div>
+
+      <h3>Design Principles</h3>
+      <div class="grid g3">
+        <div class="card">
+          <h4>① Segmentation First</h4>
+          <p>Attacker, target, and monitoring networks are isolated. This mirrors real
+             enterprise zoning and prevents lateral movement during simulation.</p>
+        </div>
+        <div class="card">
+          <h4>② Realistic Detection</h4>
+          <p>The SIEM correlates events, applies severity thresholds, and only escalates
+             meaningful signals — not raw noise.</p>
+        </div>
+        <div class="card">
+          <h4>③ Automated Response</h4>
+          <p>Detection without action is just noise. Every high-severity alert is triaged
+             and delivered automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <p class="lead">
+        The environment runs on VMware Workstation Pro with pfSense acting as the central
+        router, firewall, and DHCP server. Each security tool lives on its own isolated
+        network segment, mirroring enterprise network zoning practices.
+      </p>
+
+      <h3>Network Segmentation</h3>
+      <table>
+        <thead>
+          <tr><th>VMware Adapter</th><th>Network</th><th>Role</th><th>Subnet</th><th>pfSense IF</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>NAT</td><td>WAN</td><td>Internet uplink</td><td>192.168.114.0/24</td><td>EM0</td></tr>
+          <tr><td>VMnet2</td><td>LAN</td><td>Management &amp; servers</td><td>192.168.1.0/24</td><td>EM1</td></tr>
+          <tr><td>VMnet3</td><td>SPAN</td><td>Traffic mirroring</td><td>—</td><td>EM2</td></tr>
+          <tr><td>VMnet4</td><td>Kali</td><td>Attacker network</td><td>192.168.3.0/24</td><td>EM3</td></tr>
+          <tr><td>VMnet5</td><td>Wazuh</td><td>SIEM segment</td><td>192.168.4.0/24</td><td>EM4</td></tr>
+          <tr><td>VMnet6</td><td>Splunk</td><td>Log collector</td><td>192.168.5.0/24</td><td>EM5</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>Architecture Note:</strong> The original design placed Wazuh on the SPAN
+        network (VMnet5), which is designed for passive capture and has no gateway. Because
+        the SOAR pipeline requires outbound API calls to n8n, the Wazuh VM was migrated to
+        the routable LAN segment (VMnet2).
+      </div>
+
+      <h3>Virtual Machines</h3>
+      <div class="grid g3">
+        <div class="card"><h4>🔥 pfSense CE 2.6</h4><p>Router, firewall, DHCP. Foundation of the entire lab.</p></div>
+        <div class="card"><h4>🛡️ Wazuh Manager 4.14</h4><p>SIEM/XDR. Runs the analysis engine, rules, decoders, and integratord.</p></div>
+        <div class="card"><h4>⚙️ n8n (Ubuntu 24.04)</h4><p>SOAR engine in Docker. Receives webhooks and orchestrates responses.</p></div>
+        <div class="card"><h4>🪟 Windows Server 2019</h4><p>AD DC + Wazuh agent endpoint. Primary detection target.</p></div>
+        <div class="card"><h4>💀 Kali Linux</h4><p>Attacker box for brute-force and reconnaissance simulations.</p></div>
+        <div class="card"><h4>📊 Splunk / Metasploitable</h4><p>Supplementary log collector and vulnerable target.</p></div>
+      </div>
+
+      <h3>VM Specifications</h3>
+      <table>
+        <thead><tr><th>VM</th><th>OS</th><th>IP</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>pfSense</td><td>FreeBSD</td><td>192.168.1.254 (LAN)</td><td>Router / Firewall</td></tr>
+          <tr><td>Wazuh Manager</td><td>CentOS-based</td><td>192.168.1.150</td><td>SIEM / XDR</td></tr>
+          <tr><td>n8n</td><td>Ubuntu 24.04</td><td>192.168.1.135</td><td>SOAR Engine</td></tr>
+          <tr><td>Windows Server</td><td>Win Server 2019</td><td>192.168.1.100</td><td>AD DC + Agent</td></tr>
+          <tr><td>Kali</td><td>Kali Linux</td><td>192.168.3.x (DHCP)</td><td>Attacker</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- PIPELINE -->
+    <section id="pipeline">
+      <h2>The SOAR Pipeline</h2>
+      <p class="lead">
+        Five stages, from raw attack to formatted inbox alert — every handoff is automated,
+        validated, and observable.
+      </p>
+
+      <div class="pipeline">
+        <div class="stage s1">
+          <div class="num">STAGE 01</div>
+          <div class="name">Attack</div>
+          <div class="desc">Kali launches brute force against Windows Server.</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="stage s2">
+          <div class="num">STAGE 02</div>
+          <div class="name">Detect</div>
+          <div class="desc">Wazuh agent captures Event 4625 and forwards to Manager.</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="stage s3">
+          <div class="num">STAGE 03</div>
+          <div class="name">Correlate</div>
+          <div class="desc">Rule 60122 → 18107 escalation. Severity ≥ level 10.</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="stage s4">
+          <div class="num">STAGE 04</div>
+          <div class="name">Triage</div>
+          <div class="desc">n8n receives webhook, filters by severity, formats fields.</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="stage s5">
+          <div class="num">STAGE 05</div>
+          <div class="name">Notify</div>
+          <div class="desc">Gmail API delivers formatted email within seconds.</div>
+        </div>
+      </div>
+
+      <h3>Full Alert Lifecycle</h3>
+<pre><code><span class="cmt">┌─────────────────────────────────────────────────────────────────────┐</span>
+<span class="cmt">│</span>  <span class="kw">1.</span> Kali launches Hydra RDP brute force against Windows Server
+<span class="cmt">│</span>  <span class="kw">2.</span> Windows Event ID 4625 (failed logon) fires per attempt
+<span class="cmt">│</span>  <span class="kw">3.</span> Wazuh agent forwards event to Manager on TCP/1514
+<span class="cmt">│</span>  <span class="kw">4.</span> Manager correlates failures → alert severity ≥ 10
+<span class="cmt">│</span>  <span class="kw">5.</span> integratord invokes custom-n8n.py with the alert path
+<span class="cmt">│</span>  <span class="kw">6.</span> Script POSTs JSON to n8n webhook
+<span class="cmt">│</span>  <span class="kw">7.</span> n8n Webhook node receives payload
+<span class="cmt">│</span>  <span class="kw">8.</span> IF node: level ≥ 10? → TRUE
+<span class="cmt">│</span>  <span class="kw">9.</span> Set node extracts EmailSubject, Severity, Agent, Description
+<span class="cmt">│</span> <span class="kw">10.</span> Gmail node sends HTML email via Gmail API
+<span class="cmt">│</span> <span class="kw">11.</span> Analyst receives alert in inbox within seconds
+<span class="cmt">└─────────────────────────────────────────────────────────────────────┘</span></code></pre>
+
+      <h3>Firewall Rules</h3>
+      <table>
+        <thead><tr><th>Rule</th><th>Interface</th><th>Proto</th><th>Source</th><th>Destination</th><th>Port</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Allow Wazuh → n8n</td><td>LAN</td><td>TCP</td><td>192.168.1.150</td><td>192.168.1.135</td><td>5678</td><td>Pass</td></tr>
+          <tr><td>Allow Agent → Manager</td><td>LAN</td><td>TCP</td><td>192.168.1.100</td><td>192.168.1.150</td><td>1514, 1515</td><td>Pass</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="results">
+      <h2>Results</h2>
+      <p class="lead">
+        The pipeline was validated end-to-end using controlled attack simulations and local
+        integrity checks. Every stage was confirmed independently before full-chain testing.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><div class="v">5</div><div class="l">VMs Orchestrated</div></div>
+        <div class="stat"><div class="v">6</div><div class="l">Segmented Networks</div></div>
+        <div class="stat"><div class="v">&lt;5s</div><div class="l">Detection → Email</div></div>
+        <div class="stat"><div class="v">$0</div><div class="l">Software Cost</div></div>
+      </div>
+
+      <h3>Validation Tests Performed</h3>
+      <table>
+        <thead><tr><th>Test</th><th>Method</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Webhook delivery</td><td><code>curl</code> POST to production URL</td><td>✅ 200 OK</td></tr>
+          <tr><td>Conditional filtering</td><td>IF node with severity threshold</td><td>✅ Correct branch selection</td></tr>
+          <tr><td>Data transformation</td><td>Set node field mapping</td><td>✅ Correct field extraction</td></tr>
+          <tr><td>Gmail API auth</td><td>OAuth2 with Google Cloud project</td><td>✅ Token issued &amp; stored</td></tr>
+          <tr><td>End-to-end alert</td><td>Wazuh logtest → integration script</td><td>✅ Email delivered</td></tr>
+          <tr><td>Brute-force correlation</td><td>Hydra RDP against Windows Server</td><td>✅ Rule 60122 / 18107 fired</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- N8N SETUP -->
+    <section id="n8n-setup">
+      <h2>n8n Setup &amp; OAuth2 Configuration</h2>
+      <p class="lead">
+        Deploy n8n in Docker and connect it to the Gmail API via OAuth2 — including the
+        private-IP workaround required for lab environments.
+      </p>
+
+      <h3>Prerequisites</h3>
+      <ul style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Ubuntu Server 24.04 LTS VM (2 vCPU, 4 GB RAM, 30 GB disk)</li>
+        <li>Static IP assigned (e.g., <code>192.168.1.135</code>)</li>
+        <li>Internet access for pulling Docker images</li>
+        <li>A Gmail account for sending alerts</li>
+      </ul>
+
+      <h3>Docker Installation</h3>
+<pre><code><span class="cmt"># Update and install prerequisites</span>
+sudo apt update &amp;&amp; sudo apt upgrade -y
+sudo apt install -y ca-certificates curl gnupg
+
+<span class="cmt"># Add Docker's GPG key</span>
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+<span class="cmt"># Add the repository</span>
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list &gt; /dev/null
+
+<span class="cmt"># Install Docker Engine</span>
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+
+<span class="cmt"># Verify</span>
+sudo docker run hello-world
+
+<span class="cmt"># Add user to docker group</span>
+sudo usermod -aG docker $USER
+newgrp docker</code></pre>
+
+      <h3>Generate an Encryption Key</h3>
+      <p style="color:var(--muted);font-size:14px;">n8n uses this key to encrypt credentials at rest. <strong>Back it up</strong> — if you lose it, you lose access to all stored credentials.</p>
+<pre><code>openssl rand -base64 32
+<span class="cmt"># Example: 1P0P5ESPXQJEM8SWN00S6CG2y/pATqLYMgZnELd128I=</span></code></pre>
+
+      <h3>Environment Variables Explained</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>GENERIC_TIMEZONE</code></td><td>Sets timezone for cron/schedule nodes</td></tr>
+          <tr><td><code>N8N_ENCRYPTION_KEY</code></td><td>Encrypts stored credentials at rest. <strong>Critical.</strong></td></tr>
+          <tr><td><code>N8N_SECURE_COOKIE=false</code></td><td>Allows login over HTTP (no HTTPS in lab)</td></tr>
+          <tr><td><code>N8N_HOST=localhost</code></td><td>Makes OAuth redirect URLs use <code>localhost</code></td></tr>
+          <tr><td><code>WEBHOOK_URL</code></td><td>Base URL for webhooks — must be reachable by Wazuh</td></tr>
+          <tr><td><code>NODE_OPTIONS</code></td><td>Forces IPv4 DNS resolution</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- OAUTH -->
+    <section id="oauth">
+      <h2>Google Cloud OAuth2 Setup</h2>
+      <div class="callout danger">
+        <strong>Why the SSH tunnel?</strong> Google blocks OAuth2 redirects to private IP
+        addresses (RFC1918). To work around this, we use an SSH tunnel so the browser sees
+        <code>localhost</code> instead of <code>192.168.1.135</code>.
+      </div>
+
+      <h3>Step 1 — Create a Google Cloud Project</h3>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Go to <code>console.cloud.google.com</code></li>
+        <li>Create a new project (e.g., <code>n8n-SOAR-Lab</code>)</li>
+        <li>Select the project from the dropdown</li>
+      </ol>
+
+      <h3>Step 2 — Enable the Gmail API</h3>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Navigate to <strong>APIs &amp; Services → Library</strong></li>
+        <li>Search for <strong>Gmail API</strong></li>
+        <li>Click <strong>Enable</strong></li>
+      </ol>
+
+      <h3>Step 3 — Configure the OAuth Consent Screen</h3>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Go to <strong>APIs &amp; Services → OAuth consent screen</strong></li>
+        <li>Choose <strong>External</strong> → <strong>Create</strong></li>
+        <li>App name: <code>n8n Lab</code>; fill in your email fields</li>
+        <li>On <strong>Scopes</strong>, click Save and Continue (nothing needed here)</li>
+        <li>On <strong>Test users</strong>, add your Gmail address
+          <div class="callout warn" style="margin:10px 0;">
+            ⚠️ <strong>This step is critical.</strong> If your email isn't a test user,
+            Google will block the app.
+          </div>
+        </li>
+      </ol>
+
+      <h3>Step 4 — Create OAuth2 Credentials</h3>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Go to <strong>APIs &amp; Services → Credentials</strong></li>
+        <li>Click <strong>+ CREATE CREDENTIALS → OAuth client ID</strong></li>
+        <li>Application type: <strong>Web application</strong></li>
+        <li>Name: <code>n8n Gmail</code></li>
+        <li>Authorized redirect URI: <code>http://localhost:5678/rest/oauth2-credential/callback</code></li>
+        <li>Click <strong>Create</strong></li>
+        <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+      </ol>
+
+      <h3>Step 5 — Start the SSH Tunnel</h3>
+      <p style="color:var(--muted);font-size:14px;">From your Windows machine (or wherever your browser runs):</p>
+<pre><code>ssh -L 5678:localhost:5678 socpanda@192.168.1.135</code></pre>
+      <p style="color:var(--muted);font-size:14px;">Keep this terminal window open. Then access n8n at <code>http://localhost:5678</code>.</p>
+    </section>
+
+    <!-- WORKFLOW -->
+    <section id="workflow">
+      <h2>Workflow Build</h2>
+      <p class="lead">The SOAR workflow has four nodes chained left to right.</p>
+
+<pre><code>[ Webhook ] → [ IF ] → [ Edit Fields ] → [ Gmail ]</code></pre>
+
+      <h3>Node 1 — Webhook</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>HTTP Method</td><td>POST</td></tr>
+          <tr><td>Path</td><td><code>wazuh-alerts</code></td></tr>
+          <tr><td>Respond</td><td>Immediately</td></tr>
+        </tbody>
+      </table>
+      <p style="color:var(--muted);font-size:14px;">Copy the <strong>Production URL</strong> — you'll need it for the Wazuh integration.</p>
+
+      <h3>Node 2 — IF</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Value 1</td><td><code>{{ $json.body.rule.level }}</code> (Expression)</td></tr>
+          <tr><td>Operation</td><td>Number → Larger Equal</td></tr>
+          <tr><td>Value 2</td><td><code>10</code></td></tr>
+          <tr><td>Convert types where required</td><td>ON</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Node 3 — Edit Fields (Set)</h3>
+      <table>
+        <thead><tr><th>Field Name</th><th>Value (Expression)</th></tr></thead>
+        <tbody>
+          <tr><td><code>EmailSubject</code></td><td><code>Wazuh Alert: {{ $json.body.rule.description }}</code></td></tr>
+          <tr><td><code>Severity</code></td><td><code>{{ $json.body.rule.level }}</code></td></tr>
+          <tr><td><code>AgentName</code></td><td><code>{{ $json.body.agent.name }}</code></td></tr>
+          <tr><td><code>Description</code></td><td><code>{{ $json.body.rule.description }}</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Node 4 — Gmail</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Credential</td><td>Your Gmail OAuth2 credential</td></tr>
+          <tr><td>Resource</td><td>Message</td></tr>
+          <tr><td>Operation</td><td>Send</td></tr>
+          <tr><td>To</td><td>your.email@gmail.com</td></tr>
+          <tr><td>Subject</td><td><code>{{ $json.EmailSubject }}</code></td></tr>
+          <tr><td>Email Type</td><td>HTML</td></tr>
+        </tbody>
+      </table>
+
+      <p style="color:var(--muted);font-size:14px;">Message body (HTML):</p>
+<pre><code>&lt;p&gt;&lt;strong&gt;Severity:&lt;/strong&gt; {{ $json.Severity }}&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Agent:&lt;/strong&gt; {{ $json.AgentName }}&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Description:&lt;/strong&gt; {{ $json.Description }}&lt;/p&gt;</code></pre>
+
+      <div class="callout success">
+        <strong>Finally:</strong> Toggle the switch in the top-right corner to
+        <strong>Active</strong>. Only then will the production webhook listen for real alerts.
+      </div>
+    </section>
+
+    <!-- WAZUH SETUP -->
+    <section id="wazuh-setup">
+      <h2>Wazuh Setup &amp; Integration</h2>
+      <p class="lead">
+        Deploy the Wazuh Manager and configure the custom Python integration that forwards
+        high-severity alerts to n8n.
+      </p>
+
+      <h3>Installation (OVA Method)</h3>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Import the Wazuh OVA into VMware Workstation Pro</li>
+        <li>Boot and log in with <code>wazuh-user</code> / <code>wazuh</code></li>
+        <li>Update: <code>sudo dnf update -y</code></li>
+      </ol>
+
+      <h3>Installation (Package Method)</h3>
+<pre><code><span class="cmt"># Add the Wazuh repository</span>
+curl -sO https://packages.wazuh.com/key/GPG-KEY-WAZUH
+sudo rpm --import GPG-KEY-WAZUH
+
+sudo tee /etc/yum.repos.d/wazuh.repo &lt;&lt;EOF
+[wazuh]
+gpgcheck=1
+gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
+enabled=1
+name=EL-\$releasever - Wazuh
+baseurl=https://packages.wazuh.com/4.x/yum/
+protect=1
+EOF
+
+<span class="cmt"># Install the manager</span>
+sudo dnf install wazuh-manager -y
+sudo systemctl enable --now wazuh-manager</code></pre>
+
+      <h3>Useful Commands</h3>
+<pre><code><span class="cmt"># Service control</span>
+sudo systemctl restart wazuh-manager
+sudo /var/ossec/bin/wazuh-control status
+
+<span class="cmt"># List connected agents</span>
+sudo /var/ossec/bin/agent_control -l
+
+<span class="cmt"># View live alerts</span>
+sudo tail -f /var/ossec/logs/alerts/alerts.json
+
+<span class="cmt"># View integration log</span>
+sudo tail -f /var/ossec/logs/integrations.log
+
+<span class="cmt"># Check integrator daemon</span>
+sudo grep -i "integrator" /var/ossec/logs/ossec.log</code></pre>
+    </section>
+
+    <!-- AGENT -->
+    <section id="agent">
+      <h2>Agent Enrollment</h2>
+
+      <h3>On the Wazuh Manager</h3>
+<pre><code>sudo /var/ossec/bin/manage_agents</code></pre>
+      <ol style="color:var(--muted);font-size:14.5px;padding-left:20px;line-height:1.9;">
+        <li>Press <code>A</code> to add an agent</li>
+        <li>Enter a name (e.g., <code>SRV-2019</code>)</li>
+        <li>Enter the agent IP (or leave blank to allow any)</li>
+        <li>Confirm and note the assigned <strong>Agent ID</strong></li>
+        <li>Press <code>E</code> to extract the key — copy the base64 key</li>
+      </ol>
+
+      <h3>On the Windows Server (Endpoint)</h3>
+      <p style="color:var(--muted);font-size:14px;">Option A — Silent install with auto-enrollment:</p>
+<pre><code>Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.7-1.msi `
+  -OutFile "$env:TEMP\wazuh-agent.msi"
+
+msiexec.exe /i "$env:TEMP\wazuh-agent.msi" /q `
+  WAZUH_MANAGER="192.168.1.150" `
+  WAZUH_AGENT_NAME="SRV-2019"
+
+Start-Service -Name "WazuhSvc"</code></pre>
+
+      <p style="color:var(--muted);font-size:14px;">Option B — Manual key import:</p>
+<pre><code>cd "C:\Program Files (x86)\ossec-agent"
+.\manage_agents.exe -i 001
+<span class="cmt"># Paste the key from the manager when prompted</span>
+Restart-Service -Name "WazuhSvc"</code></pre>
+
+      <h3>Verify Connection</h3>
+<pre><code>sudo /var/ossec/bin/agent_control -l</code></pre>
+    </section>
+
+    <!-- INTEGRATION -->
+    <section id="integration">
+      <h2>Integration Script</h2>
+      <p class="lead">
+        The Python script is the bridge between Wazuh and n8n. Wazuh's integratord daemon
+        invokes it whenever an alert meets the configured severity threshold.
+      </p>
+
+      <h3>Create the Script</h3>
+      <p style="color:var(--muted);font-size:14px;">Save as <code>/var/ossec/integrations/custom-n8n.py</code>:</p>
+<pre><code><span class="kw">#!/usr/bin/env python3</span>
+<span class="str">"""
+Wazuh → n8n integration script.
+
+Invoked by the Wazuh integratord daemon when an alert matches the
+configured severity threshold.
+"""</span>
+
+<span class="kw">import</span> sys, json, os, requests
+
+<span class="cmt"># --- Configuration ---</span>
+WEBHOOK_URL = <span class="str">"http://192.168.1.135:5678/webhook/wazuh-alerts"</span>
+LOG_FILE = <span class="str">"/var/ossec/logs/integrations.log"</span>
+
+<span class="kw">def</span> <span class="fn">write_log</span>(message):
+    <span class="kw">try</span>:
+        <span class="kw">with</span> open(LOG_FILE, <span class="str">"a"</span>) <span class="kw">as</span> f:
+            f.write(<span class="str">f"[custom-n8n.py] {message}\n"</span>)
+    <span class="kw">except</span> Exception:
+        <span class="kw">pass</span>
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    <span class="kw">if</span> len(sys.argv) &lt; 2:
+        write_log(<span class="str">"[ERROR] Missing alert file argument."</span>)
+        sys.exit(1)
+
+    alert_file_path = sys.argv[1]
+
+    <span class="kw">if not</span> os.path.exists(alert_file_path):
+        write_log(<span class="str">f"[ERROR] Alert file not found: {alert_file_path}"</span>)
+        sys.exit(1)
+
+    <span class="kw">try</span>:
+        <span class="kw">with</span> open(alert_file_path, <span class="str">"r"</span>) <span class="kw">as</span> f:
+            alert_data = json.load(f)
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        write_log(<span class="str">f"[ERROR] Failed to read alert JSON: {e}"</span>)
+        sys.exit(1)
+
+    <span class="kw">try</span>:
+        response = requests.post(WEBHOOK_URL, json=alert_data, timeout=10)
+        response.raise_for_status()
+        write_log(<span class="str">f"[SUCCESS] Alert sent to n8n. Status: {response.status_code}"</span>)
+    <span class="kw">except</span> requests.exceptions.RequestException <span class="kw">as</span> e:
+        write_log(<span class="str">f"[ERROR] Failed to send alert to n8n: {e}"</span>)
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    main()</code></pre>
+
+      <h3>Set Permissions</h3>
+<pre><code>sudo chmod 750 /var/ossec/integrations/custom-n8n.py
+sudo chown root:wazuh /var/ossec/integrations/custom-n8n.py
+
+<span class="cmt"># Expected: -rwxr-x--- 1 root wazuh</span>
+ls -l /var/ossec/integrations/custom-n8n.py</code></pre>
+
+      <h3>Install Python Dependencies</h3>
+<pre><code>sudo /var/ossec/framework/python/bin/pip3 install requests</code></pre>
+
+      <h3>Configure ossec.conf</h3>
+      <p style="color:var(--muted);font-size:14px;">Add this block inside the top-level <code>&lt;ossec_config&gt;</code> in <code>/var/ossec/etc/ossec.conf</code>, immediately before the final closing tag:</p>
+<pre><code>&lt;integration&gt;
+  &lt;name&gt;custom-n8n.py&lt;/name&gt;
+  &lt;hook_url&gt;http://192.168.1.135:5678/webhook/wazuh-alerts&lt;/hook_url&gt;
+  &lt;level&gt;10&lt;/level&gt;
+  &lt;alert_format&gt;json&lt;/alert_format&gt;
+&lt;/integration&gt;</code></pre>
+
+      <div class="callout danger">
+        <strong>Critical warnings:</strong>
+        <ul style="margin:8px 0 0 20px;font-size:13.5px;">
+          <li>There can only be <strong>one</strong> <code>&lt;ossec_config&gt;</code> root element. Do not duplicate the tag.</li>
+          <li>The integration block must be a <strong>top-level child</strong> of <code>&lt;ossec_config&gt;</code>, not nested inside <code>&lt;syscheck&gt;</code> or any other module.</li>
+          <li>If you edit via WinSCP + Notepad++, convert line endings to Unix: <code>sudo sed -i 's/\r$//' /var/ossec/etc/ossec.conf</code></li>
+        </ul>
+      </div>
+
+      <h3>Restart &amp; Verify</h3>
+<pre><code>sudo systemctl restart wazuh-manager
+sudo systemctl status wazuh-manager
+
+<span class="cmt"># Confirm the integrator loaded your script</span>
+sudo grep -i "integrator" /var/ossec/logs/ossec.log | tail -5
+
+<span class="cmt"># Expected: wazuh-integratord: INFO: Enabling integration for: 'custom-n8n.py'.</span></code></pre>
+    </section>
+
+    <!-- CONFIGS -->
+    <section id="configs">
+      <h2>Configuration Files</h2>
+
+      <h3>docker-compose.yml</h3>
+<pre><code>services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - <span class="str">"5678:5678"</span>
+    environment:
+      <span class="cmt"># --- Core Settings ---</span>
+      - GENERIC_TIMEZONE=Asia/Manila
+      - N8N_ENCRYPTION_KEY=CHANGE_ME
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+
+      <span class="cmt"># --- Lab Access Fixes ---</span>
+      - N8N_SECURE_COOKIE=false
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+
+      <span class="cmt"># --- OAuth vs Webhook Fix ---</span>
+      - N8N_HOST=localhost
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://192.168.1.135:5678/
+
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    extra_hosts:
+      - <span class="str">"enterprise.n8n.io:104.26.13.187"</span>
+      - <span class="str">"enterprise.n8n.io:104.26.12.187"</span>
+      - <span class="str">"enterprise.n8n.io:172.67.68.102"</span>
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:</code></pre>
+
+      <h3>ossec-integration.xml</h3>
+<pre><code><span class="cmt">&lt;!--
+  Wazuh Integration Snippet
+  Add inside the top-level &lt;ossec_config&gt; element.
+--&gt;</span>
+&lt;integration&gt;
+  &lt;name&gt;custom-n8n.py&lt;/name&gt;
+  &lt;hook_url&gt;http://192.168.1.135:5678/webhook/wazuh-alerts&lt;/hook_url&gt;
+  &lt;level&gt;10&lt;/level&gt;
+  &lt;alert_format&gt;json&lt;/alert_format&gt;
+&lt;/integration&gt;</code></pre>
+    </section>
+
+    <!-- CHALLENGES -->
+    <section id="challenges">
+      <h2>Engineering Challenges Solved</h2>
+      <p class="lead">
+        These are the real-world troubleshooting scenarios that turned this lab from a
+        checklist into an actual learning experience.
+      </p>
+
+      <div class="timeline">
+        <div class="tl-item">
+          <span class="tl-tag err">ERROR</span>
+          <h4>VMware vPMC power-on failure after enabling Hyper-V</h4>
+          <p>Windows 11's Virtualization-Based Security claimed exclusive CPU virtualization
+             extensions, blocking VMware from using AMD-V for nested VMs.</p>
+          <span class="tl-tag fix">FIX</span>
+          <p>Disabled Memory Integrity, ran <code>bcdedit /set hypervisorlaunchtype off</code>,
+             and turned off Hyper-V, Windows Hypervisor Platform, and Virtual Machine Platform.</p>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-tag err">ERROR</span>
+          <h4>Wazuh manager would not start — XML parse failure (line 0)</h4>
+          <p>Copy-pasting <code>ossec.conf</code> over SSH mangled indentation, breaking the XML.</p>
+          <span class="tl-tag fix">FIX</span>
+          <p>Switched to WinSCP for file transfer, normalized line endings with
+             <code>sed -i 's/\r$//'</code>, and restored the default config from upstream GitHub.</p>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-tag err">ERROR</span>
+          <h4>Google OAuth <code>redirect_uri_mismatch</code> on private IP</h4>
+          <p>Google blocks OAuth callbacks to RFC1918 addresses, returning
+             <code>Error 400: invalid_request</code>.</p>
+          <span class="tl-tag fix">FIX</span>
+          <p>Created an SSH tunnel (<code>ssh -L 5678:localhost:5678</code>) so the browser
+             saw <code>localhost</code> for OAuth, while webhooks continued to bind to the IP.</p>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-tag err">ERROR</span>
+          <h4>n8n "Mismatching encryption keys" crash loop</h4>
+          <p>Changing <code>N8N_ENCRYPTION_KEY</code> between restarts made n8n unable to
+             decrypt credentials, causing startup failure.</p>
+          <span class="tl-tag fix">FIX</span>
+          <p>Wiped the Docker volume, generated a fresh key with
+             <code>openssl rand -base64 32</code>, and permanently baked it into the compose file.</p>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-tag err">ERROR</span>
+          <h4>Double-nested <code>body</code> broke field extraction</h4>
+          <p>Test payloads wrapped data in an extra <code>body</code> key, so expressions like
+             <code>$json.body.rule.level</code> returned <code>undefined</code>.</p>
+          <span class="tl-tag fix">FIX</span>
+          <p>Reworked the <code>curl</code> test to send clean JSON and confirmed real Wazuh
+             alerts would not double-wrap.</p>
+        </div>
+
+        <div class="tl-item win">
+          <span class="tl-tag fix">ARCHITECTURE</span>
+          <h4>Moved Wazuh off the SPAN port to a routable segment</h4>
+          <p>The original design placed Wazuh on the SPAN (mirror) network, which had no
+             gateway and could not reach the n8n webhook. Recognized the mismatch and
+             migrated the SIEM to the LAN segment to enable outbound API calls.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SKILLS -->
+    <section id="skills">
+      <h2>Skills Demonstrated</h2>
+      <p class="lead">
+        This project touches every layer of a modern security operations stack — from
+        network design down to API authentication.
+      </p>
+
+      <div class="skill-group">
+        <h4>Security Operations</h4>
+        <div class="chips">
+          <span class="chip">SIEM Deployment</span>
+          <span class="chip">Detection Engineering</span>
+          <span class="chip">Alert Correlation</span>
+          <span class="chip">SOAR Automation</span>
+          <span class="chip">Incident Response</span>
+          <span class="chip">MITRE ATT&amp;CK</span>
+          <span class="chip">Log Analysis</span>
+        </div>
+      </div>
+
+      <div class="skill-group">
+        <h4>Tools &amp; Platforms</h4>
+        <div class="chips">
+          <span class="chip">Wazuh</span>
+          <span class="chip">n8n</span>
+          <span class="chip">pfSense</span>
+          <span class="chip">Splunk</span>
+          <span class="chip">Kali Linux</span>
+          <span class="chip">Hydra</span>
+          <span class="chip">Nmap</span>
+          <span class="chip">Metasploitable</span>
+        </div>
+      </div>
+
+      <div class="skill-group">
+        <h4>Infrastructure &amp; Automation</h4>
+        <div class="chips">
+          <span class="chip">Docker</span>
+          <span class="chip">Docker Compose</span>
+          <span class="chip">Ubuntu Server</span>
+          <span class="chip">Windows Server 2019</span>
+          <span class="chip">VMware Workstation</span>
+          <span class="chip">Network Segmentation</span>
+          <span class="chip">REST APIs</span>
+        </div>
+      </div>
+
+      <div class="skill-group">
+        <h4>Development &amp; Auth</h4>
+        <div class="chips">
+          <span class="chip">Python 3</span>
+          <span class="chip">Bash</span>
+          <span class="chip">PowerShell</span>
+          <span class="chip">OAuth2</span>
+          <span class="chip">Gmail API</span>
+          <span class="chip">JSON</span>
+          <span class="chip">XML</span>
+          <span class="chip">YAML</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPO -->
+    <section id="repo">
+      <h2>Repository Structure</h2>
+<pre><code>soc-lab-portfolio/
+├── index.html                 <span class="cmt"># This portfolio page</span>
+├── README.md                  <span class="cmt"># Quick-start overview</span>
+├── LICENSE                    <span class="cmt"># MIT</span>
+├── docs/
+│   ├── architecture.md        <span class="cmt"># Network design &amp; VM layout</span>
+│   ├── wazuh-setup.md         <span class="cmt"># SIEM install &amp; integration script</span>
+│   ├── n8n-setup.md           <span class="cmt"># Docker + OAuth2 walkthrough</span>
+│   └── troubleshooting.md     <span class="cmt"># Error playbook</span>
+├── integrations/
+│   └── custom-n8n.py          <span class="cmt"># Wazuh → n8n webhook forwarder</span>
+├── configs/
+│   ├── docker-compose.yml     <span class="cmt"># n8n container definition</span>
+│   └── ossec-integration.xml  <span class="cmt"># ossec.conf snippet</span>
+└── screenshots/               <span class="cmt"># Dashboard, alerts, emails</span></code></pre>
+    </section>
+
+    <!-- ROADMAP -->
+    <section id="roadmap">
+      <h2>Future Work</h2>
+      <p class="lead">Planned enhancements to expand detection coverage and response capabilities.</p>
+      <div class="grid g2">
+        <div class="card"><h4>🔔 Multi-Channel Alerting</h4><p>Add Slack, Discord, and Microsoft Teams notification channels in parallel with Gmail.</p></div>
+        <div class="card"><h4>📋 Case Management</h4><p>Integrate TheHive or Shuffle for ticketing and investigation workflow.</p></div>
+        <div class="card"><h4>🌐 Network Metadata</h4><p>Deploy Zeek for full network-level metadata capture and correlation.</p></div>
+        <div class="card"><h4>🔬 Endpoint DFIR</h4><p>Add Velociraptor for live forensic triage on suspicious endpoints.</p></div>
+        <div class="card"><h4>🧠 Threat Intel Enrichment</h4><p>Deploy OpenCTI and enrich alerts with IOC context before delivery.</p></div>
+        <div class="card"><h4>🤖 AI Summarization</h4><p>Add an LLM node in n8n to generate natural-language alert summaries for analysts.</p></div>
+      </div>
+    </section>
+
+    </div><!-- /wrap -->
+
+    <footer>
+      <div class="wrap">
+        <p>Built with open-source tools · Wazuh · n8n · pfSense · Docker</p>
+        <p style="margin-top:8px;">
+          <a href="https://github.com/yourusername">GitHub</a> ·
+          <a href="https://linkedin.com/in/yourusername">LinkedIn</a>
+        </p>
+      </div>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+
+  // Close mobile sidebar when a link is clicked
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 900) {
+        document.getElementById('sidebar').classList.remove('open');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
